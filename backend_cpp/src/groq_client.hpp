@@ -64,7 +64,7 @@ public:
 
 private:
     std::string api_key_;
-    std::string model_ = "llama-3.3-70b-versatile";
+    std::string model_ = "openai/gpt-oss-120b";
     std::string whisper_model_ = "whisper-large-v3";
 
     void load_api_key_from_env_or_file() noexcept;

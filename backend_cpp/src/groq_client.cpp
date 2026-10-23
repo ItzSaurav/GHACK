@@ -28,6 +28,61 @@ std::string trim(const std::string& str) {
     return str.substr(first, (last - first + 1));
 }
 
+// Strip emojis from text to enforce zero-emoji compliance
+std::string strip_emojis(std::string_view sv) {
+    std::string out;
+    size_t i = 0;
+    while (i < sv.size()) {
+        size_t start = i;
+        unsigned char c = static_cast<unsigned char>(sv[i]);
+        uint32_t cp = 0;
+        size_t len = 0;
+        if (c < 0x80) {
+            cp = c;
+            len = 1;
+        } else if ((c & 0xE0) == 0xC0) {
+            if (i + 1 < sv.size()) {
+                cp = ((c & 0x1F) << 6) | (static_cast<unsigned char>(sv[i + 1]) & 0x3F);
+                len = 2;
+            }
+        } else if ((c & 0xF0) == 0xE0) {
+            if (i + 2 < sv.size()) {
+                cp = ((c & 0x0F) << 12) |
+                     ((static_cast<unsigned char>(sv[i + 1]) & 0x3F) << 6) |
+                     (static_cast<unsigned char>(sv[i + 2]) & 0x3F);
+                len = 3;
+            }
+        } else if ((c & 0xF8) == 0xF0) {
+            if (i + 3 < sv.size()) {
+                cp = ((c & 0x07) << 18) |
+                     ((static_cast<unsigned char>(sv[i + 1]) & 0x3F) << 12) |
+                     ((static_cast<unsigned char>(sv[i + 2]) & 0x3F) << 6) |
+                     (static_cast<unsigned char>(sv[i + 3]) & 0x3F);
+                len = 4;
+            }
+        }
+
+        if (len == 0) {
+            i++;
+            continue;
+        }
+
+        bool is_emoji = (cp >= 0x1F600 && cp <= 0x1F64F) ||
+                        (cp >= 0x1F300 && cp <= 0x1F5FF) ||
+                        (cp >= 0x1F680 && cp <= 0x1F6FF) ||
+                        (cp >= 0x1F900 && cp <= 0x1F9FF) ||
+                        (cp >= 0x1FA70 && cp <= 0x1FAFF) ||
+                        (cp >= 0x2600 && cp <= 0x26FF)   ||
+                        (cp >= 0x2700 && cp <= 0x27BF);
+
+        if (!is_emoji) {
+            out.append(sv.substr(start, len));
+        }
+        i += len;
+    }
+    return out;
+}
+
 // Global RAII initializer for libcurl
 struct CurlGlobalInit {
     CurlGlobalInit() {
@@ -56,11 +111,18 @@ GroqClient::GroqClient(GroqClient&&) noexcept = default;
 GroqClient& GroqClient::operator=(GroqClient&&) noexcept = default;
 
 void GroqClient::load_api_key_from_env_or_file() noexcept {
-    // 1. Check process environment variable
-    const char* env_val = std::getenv("GROQ_API_KEY");
-    if (env_val != nullptr && std::string_view(env_val).size() > 0) {
-        api_key_ = trim(env_val);
-        return;
+    // 1. Check process environment variables
+    const char* env_key = std::getenv("GROQ_API_KEY");
+    if (env_key != nullptr && std::string_view(env_key).size() > 0) {
+        api_key_ = trim(env_key);
+    }
+    const char* env_model = std::getenv("GROQ_MODEL");
+    if (env_model != nullptr && std::string_view(env_model).size() > 0) {
+        model_ = trim(env_model);
+    }
+    const char* env_whisper = std::getenv("GROQ_WHISPER_MODEL");
+    if (env_whisper != nullptr && std::string_view(env_whisper).size() > 0) {
+        whisper_model_ = trim(env_whisper);
     }
 
     // 2. Check local or parent .env files
@@ -80,20 +142,24 @@ void GroqClient::load_api_key_from_env_or_file() noexcept {
             std::string tline = trim(line);
             if (tline.empty() || tline[0] == '#') continue;
 
-            if (tline.rfind("GROQ_API_KEY=", 0) == 0) {
-                std::string val = tline.substr(13);
-                val = trim(val);
-                // Strip optional quotes
-                if (val.size() >= 2 && ((val.front() == '"' && val.back() == '"') ||
-                                        (val.front() == '\'' && val.back() == '\''))) {
-                    val = val.substr(1, val.size() - 2);
+            auto parse_val = [](std::string_view prefix, const std::string& line, std::string& target) {
+                if (line.rfind(prefix, 0) == 0) {
+                    std::string val = trim(line.substr(prefix.size()));
+                    if (val.size() >= 2 && ((val.front() == '"' && val.back() == '"') ||
+                                            (val.front() == '\'' && val.back() == '\''))) {
+                        val = val.substr(1, val.size() - 2);
+                    }
+                    if (!val.empty() && val.find("your_groq_api_key") == std::string::npos) {
+                        target = val;
+                    }
                 }
-                if (!val.empty() && val != "your_groq_api_key_here") {
-                    api_key_ = val;
-                    return;
-                }
-            }
+            };
+
+            parse_val("GROQ_API_KEY=", tline, api_key_);
+            parse_val("GROQ_MODEL=", tline, model_);
+            parse_val("GROQ_WHISPER_MODEL=", tline, whisper_model_);
         }
+        if (!api_key_.empty()) break;
     }
 }
 
@@ -268,7 +334,7 @@ ChatResult GroqClient::chat(
         {"model", model_},
         {"messages", messages_array},
         {"temperature", 0.6},
-        {"max_tokens", 512}
+        {"max_tokens", 1024}
     };
 
     std::string request_body = payload.dump();
@@ -304,9 +370,25 @@ ChatResult GroqClient::chat(
     try {
         json j = json::parse(response_body);
         if (j.contains("choices") && !j["choices"].empty()) {
-            result.reply = j["choices"][0]["message"]["content"];
-            result.model = j.value("model", model_);
-            result.success = true;
+            const auto& choice = j["choices"][0];
+            if (choice.contains("message")) {
+                const auto& msg_obj = choice["message"];
+                if (msg_obj.contains("content") && !msg_obj["content"].is_null()) {
+                    result.reply = msg_obj["content"].get<std::string>();
+                }
+                if (result.reply.empty() && msg_obj.contains("reasoning") && !msg_obj["reasoning"].is_null()) {
+                    result.reply = msg_obj["reasoning"].get<std::string>();
+                }
+            }
+            if (!result.reply.empty()) {
+                result.reply = trim(strip_emojis(result.reply));
+                result.model = j.value("model", model_);
+                result.success = true;
+            } else {
+                result.reply = offline_fallback(last_user_text, detected_lang);
+                result.model = "local-conversational-fallback";
+                result.success = true;
+            }
         } else {
             result.reply = offline_fallback(last_user_text, detected_lang);
             result.model = "local-conversational-fallback";
