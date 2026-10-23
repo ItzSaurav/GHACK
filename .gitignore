@@ -26,3 +26,10 @@ dist/
 # OS & Logs
 .DS_Store
 *.log
+
+# C++ Build Artifacts
+backend_cpp/build/
+backend_cpp/bin/
+*.o
+*.a
+*.so

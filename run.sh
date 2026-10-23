@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sahaay & Seva Vaani Unified Launcher
-# Hosts both the FastAPI backend and Vite frontend services.
+# Sahaay Multilingual Conversational Voicebot Launcher
+# Runs high-performance C++20 backend and React Vite frontend.
 
 set -e
 
@@ -8,25 +8,29 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
 echo "========================================================"
-echo "Sahaay Government Schemes Portal & Seva Vaani Assistant"
+echo "Sahaay Multilingual Conversational Voicebot (C++ Core)"
+echo "Supported Languages: English, Hindi, Gujarati, Marathi"
 echo "========================================================"
 
-# Check Python environment
-if [ ! -d ".venv" ]; then
-  echo "Virtual environment .venv not found. Creating..."
-  python3 -m venv .venv
-  .venv/bin/pip install -r backend/requirements.txt
-fi
+# 1. Build C++ Backend
+echo "Building / verifying C++ backend..."
+mkdir -p backend_cpp/build
+(
+  cd backend_cpp/build
+  cmake .. -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1 || cmake .. -DCMAKE_BUILD_TYPE=Release
+  make -j$(nproc)
+)
+echo "C++ backend built successfully."
 
-# Check Node modules
+# 2. Check Node modules for frontend
 if [ ! -d "frontend/node_modules" ]; then
-  echo "Node modules not found in frontend/. Installing..."
+  echo "Installing frontend dependencies..."
   (cd frontend && npm install)
 fi
 
 cleanup() {
   echo ""
-  echo "Shutting down Sahaay services..."
+  echo "Shutting down Voicebot services..."
   if [ -n "$BACKEND_PID" ]; then
     kill "$BACKEND_PID" 2>/dev/null || true
   fi
@@ -38,22 +42,22 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# Start Backend
-echo "Starting FastAPI Backend on http://0.0.0.0:8000..."
-.venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload &
+# 3. Start C++ Backend
+echo "Starting C++ Backend on http://0.0.0.0:8000..."
+backend_cpp/build/voicebot_server &
 BACKEND_PID=$!
 
 # Wait for backend health
-echo "Waiting for backend to initialize..."
-for i in {1..15}; do
-  if curl -s http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1; then
-    echo "Backend is ready and healthy."
+echo "Waiting for C++ backend to initialize..."
+for i in {1..20}; do
+  if curl -s http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
+    echo "C++ Backend is ready and healthy."
     break
   fi
-  sleep 0.5
+  sleep 0.2
 done
 
-# Start Frontend
+# 4. Start Frontend
 echo "Starting Vite Frontend on http://0.0.0.0:5173..."
 (cd frontend && npm run dev -- --host 0.0.0.0 --port 5173) &
 FRONTEND_PID=$!
@@ -66,10 +70,9 @@ LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7}' || hostname -i 2>
 echo ""
 echo "========================================================"
 echo "Services are live:"
-echo "  Local Portal:        http://localhost:5173/"
-echo "  Network Portal:      http://${LOCAL_IP}:5173/"
-echo "  Backend API Docs:    http://localhost:8000/docs"
-echo "  Health Endpoint:     http://localhost:8000/api/v1/health"
+echo "  Voice Assistant App: http://localhost:5173/"
+echo "  Network App:         http://${LOCAL_IP}:5173/"
+echo "  C++ Backend Health:  http://localhost:8000/api/health"
 echo "========================================================"
 echo "Press Ctrl+C to stop all services."
 
