@@ -1,0 +1,345 @@
+[
+  {
+    "id": "PM-KISAN",
+    "name": "Pradhan Mantri Kisan Samman Nidhi (PM-KISAN)",
+    "name_hi": "प्रधानमंत्री किसान सम्मान निधि (पीएम-किसान)",
+    "department": "Department of Agriculture and Farmers Welfare, Ministry of Agriculture & Farmers Welfare, GoI",
+    "state_applicability": "All India",
+    "description": "Income support of INR 6,000 per year in three equal 4-monthly installments to small and marginal farmer families possessing cultivable land.",
+    "description_hi": "कृषि योग्य भूमि रखने वाले छोटे और सीमांत किसान परिवारों को प्रति वर्ष 6,000 रुपये की प्रत्यक्ष वित्तीय सहायता।",
+    "benefit_summary": "INR 6,000 per year directly transferred to bank account in 3 installments of INR 2,000.",
+    "benefit_summary_hi": "प्रति वर्ष ₹6,000 बैंक खाते में 3 किश्तों (प्रत्येक ₹2,000) में सीधे हस्तांतरित।",
+    "required_documents": [
+      "Aadhaar Card",
+      "Land Ownership Records (Khasra/Khatauni/7-12)",
+      "Bank Account Passbook with IFSC",
+      "Active Mobile Number linked to Aadhaar"
+    ],
+    "required_documents_hi": [
+      "आधार कार्ड",
+      "भूमि स्वामित्व अभिलेख (खसरा / खतौनी)",
+      "आईएफएससी कोड सहित बैंक खाता पासबुक",
+      "आधार से लिंक सक्रिय मोबाइल नंबर"
+    ],
+    "official_source_url": "https://pmkisan.gov.in",
+    "effective_date": "2018-12-01",
+    "last_verified_date": "2024-10-01",
+    "scheme_version": "2024.1",
+    "rule_version": "1.0.0",
+    "is_illustrative": false,
+    "criteria": [
+      {
+        "id": "pmk_occ",
+        "description": "Citizen must be an agricultural cultivator or farmer",
+        "field": "occupation",
+        "operator": "eq",
+        "expected_value": "farmer",
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Citizen is an active farmer or cultivator.",
+        "explanation_on_fail": "Occupation is not recorded as farmer.",
+        "explanation_on_unknown": "Farmer occupation status is unknown."
+      },
+      {
+        "id": "pmk_land",
+        "description": "Citizen family must own cultivable land holding",
+        "field": "owns_cultivable_land",
+        "operator": "eq",
+        "expected_value": true,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Citizen possesses cultivable agricultural land.",
+        "explanation_on_fail": "Citizen does not own cultivable agricultural land.",
+        "explanation_on_unknown": "Land holding ownership status is unknown."
+      },
+      {
+        "id": "pmk_tax_excl",
+        "description": "Exclusion: Cannot be an income tax payer in previous assessment year",
+        "field": "is_income_tax_payer",
+        "operator": "eq",
+        "expected_value": true,
+        "is_mandatory": true,
+        "is_exclusion": true,
+        "explanation_on_pass": "Citizen is not disqualified by income tax exclusion.",
+        "explanation_on_fail": "Excluded because citizen is an income tax payer.",
+        "explanation_on_unknown": "Income tax payer status is unconfirmed."
+      }
+    ]
+  },
+  {
+    "id": "PM-SYM",
+    "name": "Pradhan Mantri Shram Yogi Maan-dhan (PM-SYM)",
+    "name_hi": "प्रधानमंत्री श्रम योगी मान-धन योजना (पीएम-एसवाईएम)",
+    "department": "Ministry of Labour and Employment, GoI",
+    "state_applicability": "All India",
+    "description": "Old age protection and social security pension scheme for unorganized workers.",
+    "description_hi": "असंगठित क्षेत्र के कामगारों के लिए वृद्धावस्था सामाजिक सुरक्षा पेंशन योजना।",
+    "benefit_summary": "Assured monthly pension of INR 3,000 after attaining 60 years of age.",
+    "benefit_summary_hi": "60 वर्ष की आयु पूर्ण होने के बाद प्रति माह ₹3,000 की सुनिश्चित पेंशन।",
+    "required_documents": [
+      "Aadhaar Card",
+      "Savings Bank Account / Jan Dhan Account with IFSC",
+      "Nominee details"
+    ],
+    "required_documents_hi": [
+      "आधार कार्ड",
+      "बचत बैंक खाता / जन धन खाता पासबुक",
+      "नामित व्यक्ति (नॉमिनी) का विवरण"
+    ],
+    "official_source_url": "https://maandhan.in",
+    "effective_date": "2019-02-15",
+    "last_verified_date": "2024-09-15",
+    "scheme_version": "2024.1",
+    "rule_version": "1.0.0",
+    "is_illustrative": false,
+    "criteria": [
+      {
+        "id": "pmsym_age_min",
+        "description": "Entry age must be at least 18 years",
+        "field": "age",
+        "operator": "gte",
+        "expected_value": 18,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Age is 18 years or above.",
+        "explanation_on_fail": "Age is below minimum requirement of 18 years.",
+        "explanation_on_unknown": "Age is not specified."
+      },
+      {
+        "id": "pmsym_age_max",
+        "description": "Entry age must not exceed 40 years",
+        "field": "age",
+        "operator": "lte",
+        "expected_value": 40,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Age does not exceed maximum entry age of 40 years.",
+        "explanation_on_fail": "Age exceeds 40 years (scheme entry age is 18 to 40).",
+        "explanation_on_unknown": "Age is not specified."
+      },
+      {
+        "id": "pmsym_occ",
+        "description": "Citizen must work in unorganized sector (e.g. daily wage, street vendor, domestic worker)",
+        "field": "occupation",
+        "operator": "in",
+        "expected_value": ["unorganized_worker", "farmer", "self_employed", "homemaker", "unemployed"],
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Occupation qualifies as unorganized sector worker.",
+        "explanation_on_fail": "Organized or salaried government/private employment disqualifies from PM-SYM.",
+        "explanation_on_unknown": "Occupation type is unknown."
+      },
+      {
+        "id": "pmsym_income",
+        "description": "Monthly income must be INR 15,000 or less",
+        "field": "monthly_income",
+        "operator": "lte",
+        "expected_value": 15000,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Monthly income is within the INR 15,000 ceiling.",
+        "explanation_on_fail": "Monthly income exceeds INR 15,000 threshold.",
+        "explanation_on_unknown": "Monthly income is unknown."
+      },
+      {
+        "id": "pmsym_epfo_excl",
+        "description": "Exclusion: Cannot be covered under EPFO, ESIC or NPS",
+        "field": "covered_by_epfo_esic",
+        "operator": "eq",
+        "expected_value": true,
+        "is_mandatory": true,
+        "is_exclusion": true,
+        "explanation_on_pass": "Citizen is not covered by formal EPFO/ESIC schemes.",
+        "explanation_on_fail": "Excluded due to existing formal EPFO/ESIC/NPS membership.",
+        "explanation_on_unknown": "EPFO/ESIC coverage status is unconfirmed."
+      },
+      {
+        "id": "pmsym_tax_excl",
+        "description": "Exclusion: Cannot be an income tax payer",
+        "field": "is_income_tax_payer",
+        "operator": "eq",
+        "expected_value": true,
+        "is_mandatory": true,
+        "is_exclusion": true,
+        "explanation_on_pass": "Citizen is not an income tax payer.",
+        "explanation_on_fail": "Excluded because citizen is an income tax payer.",
+        "explanation_on_unknown": "Tax payer status is unconfirmed."
+      }
+    ]
+  },
+  {
+    "id": "PMMVY",
+    "name": "Pradhan Mantri Matru Vandana Yojana (PMMVY)",
+    "name_hi": "प्रधानमंत्री मातृ वंदना योजना (पीएमएमवीवाई)",
+    "department": "Ministry of Women and Child Development, GoI",
+    "state_applicability": "All India",
+    "description": "Maternity benefit cash incentive program for pregnant women and lactating mothers for improved health and nutrition.",
+    "description_hi": "गर्भवती महिलाओं और स्तनपान कराने वाली माताओं के स्वास्थ्य एवं पोषण सुधार के लिए मातृत्व लाभ नकद प्रोत्साहन योजना।",
+    "benefit_summary": "Cash incentive of INR 5,000 for 1st child (or INR 6,000 for 2nd child if girl) paid in installments upon ANC checkups and institutional vaccination.",
+    "benefit_summary_hi": "पहले बच्चे हेतु ₹5,000 (या दूसरी बालिका शिशु हेतु ₹6,000) स्वास्थ्य जांच व टीकाकरण पर किश्तों में।",
+    "required_documents": [
+      "Aadhaar Card of Mother",
+      "Aadhaar Card of Husband/Spouse",
+      "Mother and Child Protection (MCP) Card",
+      "Bank Account Passbook in Mother's name"
+    ],
+    "required_documents_hi": [
+      "माता का आधार कार्ड",
+      "पति का आधार कार्ड",
+      "मातृ एवं शिशु सुरक्षा (एमसीपी) कार्ड",
+      "माता के नाम पर बैंक खाता पासबुक"
+    ],
+    "official_source_url": "https://pmmvy.wcd.gov.in",
+    "effective_date": "2017-01-01",
+    "last_verified_date": "2024-08-01",
+    "scheme_version": "2024.1",
+    "rule_version": "1.0.0",
+    "is_illustrative": false,
+    "criteria": [
+      {
+        "id": "pmmvy_gender",
+        "description": "Beneficiary must be female",
+        "field": "gender",
+        "operator": "eq",
+        "expected_value": "female",
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Gender is verified as female.",
+        "explanation_on_fail": "Applicant gender is not female.",
+        "explanation_on_unknown": "Gender is not specified."
+      },
+      {
+        "id": "pmmvy_age",
+        "description": "Applicant age must be 19 years or above",
+        "field": "age",
+        "operator": "gte",
+        "expected_value": 19,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Age is 19 years or above.",
+        "explanation_on_fail": "Age is below 19 years.",
+        "explanation_on_unknown": "Age is unknown."
+      },
+      {
+        "id": "pmmvy_preg",
+        "description": "Beneficiary must be a pregnant woman or lactating mother",
+        "field": "is_pregnant_or_lactating",
+        "operator": "eq",
+        "expected_value": true,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Pregnant or lactating status confirmed.",
+        "explanation_on_fail": "Not pregnant or lactating mother.",
+        "explanation_on_unknown": "Maternal status (pregnant or lactating) is unknown."
+      },
+      {
+        "id": "pmmvy_salaried_govt_excl",
+        "description": "Exclusion: In regular employment with Central or State Government or Public Sector Undertakings",
+        "field": "occupation",
+        "operator": "eq",
+        "expected_value": "salaried_govt",
+        "is_mandatory": true,
+        "is_exclusion": true,
+        "explanation_on_pass": "Applicant is not in regular government employment.",
+        "explanation_on_fail": "Excluded due to regular employment with Government/PSU (statutory maternity benefit applies).",
+        "explanation_on_unknown": "Employment type is unknown."
+      }
+    ]
+  },
+  {
+    "id": "AB-PMJAY",
+    "name": "Ayushman Bharat - Pradhan Mantri Jan Arogya Yojana (PM-JAY)",
+    "name_hi": "आयुष्मान भारत - प्रधानमंत्री जन आरोग्य योजना (पीएम-जय)",
+    "department": "National Health Authority, Ministry of Health and Family Welfare, GoI",
+    "state_applicability": "All India (States implementing PM-JAY)",
+    "description": "Flagship public health assurance scheme providing cashless secondary and tertiary hospitalization cover.",
+    "description_hi": "गरीब व कमजोर परिवारों तथा 70 वर्ष से अधिक आयु के वरिष्ठ नागरिकों के लिए ₹5 लाख तक का कैशलेस स्वास्थ्य बीमा।",
+    "benefit_summary": "Health insurance cover of up to INR 5,00,000 per family per year for secondary and tertiary care hospitalization.",
+    "benefit_summary_hi": "प्रति परिवार प्रति वर्ष अस्पताल में भर्ती व उपचार हेतु ₹5,00,000 तक का स्वास्थ्य बीमा।",
+    "required_documents": [
+      "Aadhaar Card",
+      "Ration Card or Family Identification Document",
+      "Income / Deprivation certificate (or age proof for senior citizen track)"
+    ],
+    "required_documents_hi": [
+      "आधार कार्ड",
+      "राशन कार्ड या परिवार पहचान पत्र",
+      "आय / पात्रता प्रमाण पत्र (अथवा वरिष्ठ नागरिकों हेतु आयु प्रमाण पत्र)"
+    ],
+    "official_source_url": "https://nha.gov.in/PM-JAY",
+    "effective_date": "2018-09-23",
+    "last_verified_date": "2024-10-15",
+    "scheme_version": "2024.2",
+    "rule_version": "1.1.0",
+    "is_illustrative": false,
+    "criteria": [
+      {
+        "id": "pmjay_income",
+        "description": "Annual family income should be within INR 2,50,000 or qualifying deprivation (universal for citizens aged 70+)",
+        "field": "annual_income",
+        "operator": "lte",
+        "expected_value": 250000,
+        "is_mandatory": false,
+        "is_exclusion": false,
+        "explanation_on_pass": "Annual income is within the qualifying limit (INR 2,50,000).",
+        "explanation_on_fail": "Annual income exceeds INR 2,50,000 standard threshold (unless eligible under universal senior citizen track).",
+        "explanation_on_unknown": "Annual family income is unknown."
+      }
+    ]
+  },
+  {
+    "id": "STATE-KSS",
+    "name": "State Crop Disaster Relief (Mukhyamantri Kisan Sahayata) [Demonstration]",
+    "name_hi": "मुख्यमंत्री किसान सहायता योजना (आपदा राहत) [प्रदर्शन योजना]",
+    "department": "State Department of Agriculture (Demonstration Model)",
+    "state_applicability": "Participating States (e.g. Madhya Pradesh, Uttar Pradesh, Bihar)",
+    "description": "Financial compensation for registered farmers suffering documented crop losses exceeding 33% due to drought, unseasonal rainfall, or natural pest attack.",
+    "description_hi": "प्राकृतिक आपदा या सूखे से 33% से अधिक फसल नुकसान झेलने वाले किसानों हेतु राज्य-स्तरीय त्वरित मुआवजा।",
+    "benefit_summary": "Direct crop relief assistance up to INR 20,000 per hectare for affected agricultural acreage.",
+    "benefit_summary_hi": "प्रभावित कृषि रकबे के लिए ₹20,000 प्रति हेक्टेयर तक की प्रत्यक्ष आर्थिक सहायता।",
+    "required_documents": [
+      "Aadhaar Card",
+      "Land Record (Khatauni/7-12) showing active cultivation",
+      "Crop Sowing Certificate / Patwari crop loss verification report",
+      "Bank Account Passbook"
+    ],
+    "required_documents_hi": [
+      "आधार कार्ड",
+      "सक्रिय खेती दर्शाने वाला भू-अभिलेख (खतौनी / 7-12)",
+      "फसल बुवाई स्व-घोषणा / पटवारी फसल क्षति सत्यापन रिपोर्ट",
+      "बैंक खाता पासबुक"
+    ],
+    "official_source_url": "https://example.gov.in/kisan-sahayata-demo",
+    "effective_date": "2023-01-01",
+    "last_verified_date": "2024-05-01",
+    "scheme_version": "demo.2024",
+    "rule_version": "1.0.0-demo",
+    "is_illustrative": true,
+    "criteria": [
+      {
+        "id": "kss_occ",
+        "description": "Citizen must be an agricultural cultivator or farmer",
+        "field": "occupation",
+        "operator": "eq",
+        "expected_value": "farmer",
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Citizen is an active cultivator.",
+        "explanation_on_fail": "Citizen is not a farmer.",
+        "explanation_on_unknown": "Occupation status is unknown."
+      },
+      {
+        "id": "kss_loss",
+        "description": "Farmer experienced crop loss or natural damage (>33%)",
+        "field": "has_crop_loss",
+        "operator": "eq",
+        "expected_value": true,
+        "is_mandatory": true,
+        "is_exclusion": false,
+        "explanation_on_pass": "Documented crop damage or natural hazard loss confirmed.",
+        "explanation_on_fail": "No crop damage reported; scheme is disaster-loss triggered.",
+        "explanation_on_unknown": "Crop loss / natural hazard status is unknown."
+      }
+    ]
+  }
+]
