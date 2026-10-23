@@ -6,8 +6,11 @@
 
 #include <csignal>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -80,7 +83,115 @@ int main(int argc, char* argv[]) {
         res.set_content(response.dump(), "application/json");
     });
 
-    // 2. Chat / Conversational endpoint
+    // 2. Neural Audio TTS Endpoint (Edge-TTS via local worker with file cache)
+    auto handle_tts = [](const std::string& text, const std::string& lang, httplib::Response& res) {
+        if (text.empty()) {
+            json err = {{"success", false}, {"error", "Text parameter is required"}};
+            res.status = 400;
+            res.set_content(err.dump(), "application/json");
+            return;
+        }
+
+        std::string effective_lang = lang;
+        if (effective_lang.empty() || effective_lang == "auto") {
+            effective_lang = LanguageDetector::detect(text).code;
+        }
+
+        size_t hash_val = std::hash<std::string>{}(text + "_" + effective_lang);
+        std::string cache_dir = "/tmp/voicebot_tts_cache";
+        std::error_code ec;
+        std::filesystem::create_directories(cache_dir, ec);
+
+        std::string mp3_path = cache_dir + "/" + std::to_string(hash_val) + ".mp3";
+        std::string txt_path = cache_dir + "/" + std::to_string(hash_val) + ".txt";
+
+        // Check if cached mp3 exists
+        if (std::filesystem::exists(mp3_path)) {
+            auto file_sz = std::filesystem::file_size(mp3_path, ec);
+            if (file_sz > 500) {
+                std::ifstream check_file(mp3_path, std::ios::binary);
+                if (check_file.is_open()) {
+                    std::ostringstream ss;
+                    ss << check_file.rdbuf();
+                    std::string content = ss.str();
+                    res.set_header("Content-Type", "audio/mpeg");
+                    res.set_header("Cache-Control", "public, max-age=86400");
+                    res.set_content(content, "audio/mpeg");
+                    return;
+                }
+            } else {
+                std::filesystem::remove(mp3_path, ec);
+            }
+        }
+
+        // Generate via scripts/tts_worker.py
+        {
+            std::ofstream txt_file(txt_path);
+            txt_file << text;
+        }
+
+        std::string py_bin = "python3";
+        if (std::filesystem::exists(".venv/bin/python")) {
+            py_bin = ".venv/bin/python";
+        } else if (std::filesystem::exists("/home/saurav/Documents/GHACK/.venv/bin/python")) {
+            py_bin = "/home/saurav/Documents/GHACK/.venv/bin/python";
+        } else if (const char* venv_p = std::getenv("VIRTUAL_ENV")) {
+            py_bin = std::string(venv_p) + "/bin/python";
+        }
+
+        std::string script_path = "scripts/tts_worker.py";
+        if (!std::filesystem::exists(script_path) && std::filesystem::exists("/home/saurav/Documents/GHACK/scripts/tts_worker.py")) {
+            script_path = "/home/saurav/Documents/GHACK/scripts/tts_worker.py";
+        }
+
+        std::string cmd = py_bin + " " + script_path + " \"" + txt_path + "\" \"" + effective_lang + "\" \"" + mp3_path + "\" >/dev/null 2>&1";
+        int ret = std::system(cmd.c_str());
+        (void)ret;
+        std::filesystem::remove(txt_path, ec);
+
+        if (std::filesystem::exists(mp3_path)) {
+            auto sz = std::filesystem::file_size(mp3_path, ec);
+            if (sz > 100) {
+                std::ifstream result_file(mp3_path, std::ios::binary);
+                if (result_file.is_open()) {
+                    std::ostringstream ss;
+                    ss << result_file.rdbuf();
+                    std::string content = ss.str();
+                    res.set_header("Content-Type", "audio/mpeg");
+                    res.set_header("Cache-Control", "public, max-age=86400");
+                    res.set_content(content, "audio/mpeg");
+                    return;
+                }
+            } else {
+                std::filesystem::remove(mp3_path, ec);
+            }
+        }
+
+        json err = {{"success", false}, {"error", "Failed to synthesize neural audio"}};
+        res.status = 500;
+        res.set_content(err.dump(), "application/json");
+    };
+
+    g_server->Get("/api/tts", [&handle_tts](const httplib::Request& req, httplib::Response& res) {
+        std::string text = req.get_param_value("text");
+        std::string lang = req.get_param_value("lang");
+        handle_tts(text, lang, res);
+    });
+
+    g_server->Post("/api/tts", [&handle_tts](const httplib::Request& req, httplib::Response& res) {
+        try {
+            json body = json::parse(req.body);
+            std::string text = body.value("text", "");
+            std::string lang = body.contains("language") ? body.value("language", "hi") : body.value("lang", "hi");
+            handle_tts(text, lang, res);
+        } catch (...) {
+            json err = {{"success", false}, {"error", "Invalid JSON payload"}};
+            res.status = 400;
+            res.set_content(err.dump(), "application/json");
+        }
+    });
+
+    // 3. Chat / Conversational endpoint
     g_server->Post("/api/chat", [&groq](const httplib::Request& req, httplib::Response& res) {
         groq.reload_env();
         try {

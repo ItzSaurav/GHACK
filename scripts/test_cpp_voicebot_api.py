@@ -7,41 +7,64 @@ Verifies health, 4-language auto-detection, chat responses, and transcription en
 import subprocess
 import time
 import urllib.request
+import urllib.parse
 import json
 import os
 import sys
+import socket
 
-PORT = 8089
-SERVER_BIN = os.path.abspath("backend_cpp/build/voicebot_server")
+def get_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SERVER_BIN = os.path.join(ROOT_DIR, "backend_cpp/build/voicebot_server")
 
 def run_tests():
-    print("Starting C++ Voicebot Server on port", PORT, "for integration testing...")
+    port = get_free_port()
+    print("Starting C++ Voicebot Server on dynamic port", port, "for integration testing...")
     env = os.environ.copy()
-    env["PORT"] = str(PORT)
+    env["PORT"] = str(port)
     env["HOST"] = "127.0.0.1"
 
-    proc = subprocess.Popen([SERVER_BIN], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(
+        [SERVER_BIN],
+        cwd=ROOT_DIR,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
 
     try:
         # Wait for server to be ready
         ready = False
-        for _ in range(30):
+        last_exc = None
+        for _ in range(50):
             try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/api/health", timeout=1) as resp:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1) as resp:
                     if resp.status == 200:
                         ready = True
                         break
-            except Exception:
+            except Exception as e:
+                last_exc = e
                 time.sleep(0.1)
 
         if not ready:
-            print("ERROR: Server failed to become ready within timeout.")
+            print(f"ERROR: Server failed to become ready within timeout. Last exc: {last_exc}")
+            proc.terminate()
+            try:
+                out, err = proc.communicate(timeout=2)
+                print("Server stdout:\n", out.decode(errors='ignore'))
+                print("Server stderr:\n", err.decode(errors='ignore'))
+            except Exception as e:
+                print("Could not collect server output:", e)
             sys.exit(1)
 
         print("Server is up and healthy! Running API tests...")
 
         # 1. Health check
-        with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/api/health") as resp:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health") as resp:
             data = json.loads(resp.read().decode())
             assert data["status"] == "healthy"
             assert data["engine"] == "cpp-voicebot-core"
@@ -51,7 +74,7 @@ def run_tests():
 
         # 2. English Chat
         req = urllib.request.Request(
-            f"http://127.0.0.1:{PORT}/api/chat",
+            f"http://127.0.0.1:{port}/api/chat",
             data=json.dumps({"message": "Hello, what can you do?"}).encode(),
             headers={"Content-Type": "application/json"}
         )
@@ -65,7 +88,7 @@ def run_tests():
 
         # 3. Hindi Chat
         req = urllib.request.Request(
-            f"http://127.0.0.1:{PORT}/api/chat",
+            f"http://127.0.0.1:{port}/api/chat",
             data=json.dumps({"message": "नमस्ते जी, आप कैसे हैं?"}).encode(),
             headers={"Content-Type": "application/json"}
         )
@@ -79,7 +102,7 @@ def run_tests():
 
         # 4. Gujarati Chat
         req = urllib.request.Request(
-            f"http://127.0.0.1:{PORT}/api/chat",
+            f"http://127.0.0.1:{port}/api/chat",
             data=json.dumps({"message": "નમસ્તે, મને તમારા વિશે કહો"}).encode(),
             headers={"Content-Type": "application/json"}
         )
@@ -93,7 +116,7 @@ def run_tests():
 
         # 5. Marathi Chat
         req = urllib.request.Request(
-            f"http://127.0.0.1:{PORT}/api/chat",
+            f"http://127.0.0.1:{port}/api/chat",
             data=json.dumps({"message": "नमस्कार, मला सांगा तुम्ही कोण आहात आणि कशी मदत करू शकता?"}).encode(),
             headers={"Content-Type": "application/json"}
         )
@@ -112,7 +135,7 @@ def run_tests():
             {"role": "user", "content": "How is the weather?"}
         ]
         req = urllib.request.Request(
-            f"http://127.0.0.1:{PORT}/api/chat",
+            f"http://127.0.0.1:{port}/api/chat",
             data=json.dumps({"history": history}).encode(),
             headers={"Content-Type": "application/json"}
         )
@@ -121,6 +144,29 @@ def run_tests():
             assert data["success"] is True
             assert data["detected_language"] == "en"
             print("PASS: Multi-turn history preserved and processed.")
+
+        # 7. TTS GET endpoint
+        encoded_text = urllib.parse.quote("नमस्ते")
+        tts_url = f"http://127.0.0.1:{port}/api/tts?text={encoded_text}&lang=hi-IN"
+        with urllib.request.urlopen(tts_url) as resp:
+            assert resp.status == 200
+            assert resp.headers.get("Content-Type") == "audio/mpeg"
+            audio_bytes = resp.read()
+            assert len(audio_bytes) > 500
+            print(f"PASS: /api/tts GET returned valid MP3 stream ({len(audio_bytes)} bytes).")
+
+        # 8. TTS POST endpoint (and cache retrieval)
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/tts",
+            data=json.dumps({"text": "Hello citizen", "language": "en-IN"}).encode(),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req) as resp:
+            assert resp.status == 200
+            assert resp.headers.get("Content-Type") == "audio/mpeg"
+            post_audio_bytes = resp.read()
+            assert len(post_audio_bytes) > 500
+            print(f"PASS: /api/tts POST returned valid MP3 stream ({len(post_audio_bytes)} bytes).")
 
         print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY!")
 

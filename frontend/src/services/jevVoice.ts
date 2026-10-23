@@ -8,6 +8,8 @@ export const LANGUAGE_REGISTRY: Record<LanguageCode, LanguageInfo> = {
 };
 
 export class JevVoiceEngine {
+  private static currentAudio: HTMLAudioElement | null = null;
+
   /**
    * Fast client-side language classifier using Unicode code-points and lexical tokens.
    */
@@ -73,7 +75,58 @@ export class JevVoiceEngine {
   }
 
   /**
-   * Speak response using Web Speech Synthesis.
+   * Play high-definition neural audio via backend Edge-TTS with fallback to Web Speech API.
+   */
+  static playAudio(
+    text: string,
+    langCode: string,
+    onStart?: () => void,
+    onEnd?: () => void,
+    onError?: (err: any) => void
+  ): HTMLAudioElement | null {
+    this.stopSpeaking();
+
+    const cleanText = text
+      .replace(/[*_#`~]/g, '')
+      .replace(/\n+/g, ' ')
+      .trim();
+
+    if (!cleanText) {
+      if (onEnd) onEnd();
+      return null;
+    }
+
+    const audioUrl = `/api/tts?text=${encodeURIComponent(cleanText)}&lang=${langCode}`;
+    const audio = new Audio(audioUrl);
+    this.currentAudio = audio;
+
+    audio.onplay = () => {
+      if (onStart) onStart();
+    };
+
+    audio.onended = () => {
+      this.currentAudio = null;
+      if (onEnd) onEnd();
+    };
+
+    audio.onerror = (e) => {
+      console.warn('Neural audio playback failed, falling back to Web Speech API:', e);
+      this.currentAudio = null;
+      const bcp47 = LANGUAGE_REGISTRY[langCode as LanguageCode]?.bcp47 || 'hi-IN';
+      this.speak(cleanText, bcp47, onStart, onEnd, onError);
+    };
+
+    audio.play().catch((err) => {
+      console.warn('Autoplay prevented or audio play failed, falling back to Web Speech API:', err);
+      const bcp47 = LANGUAGE_REGISTRY[langCode as LanguageCode]?.bcp47 || 'hi-IN';
+      this.speak(cleanText, bcp47, onStart, onEnd, onError);
+    });
+
+    return audio;
+  }
+
+  /**
+   * Fallback speech synthesis using browser Web Speech API.
    */
   static speak(
     text: string,
@@ -89,7 +142,6 @@ export class JevVoiceEngine {
 
     window.speechSynthesis.cancel();
 
-    // Clean text of asterisks or markdown artifacts before speaking
     const cleanText = text
       .replace(/[*_#`~]/g, '')
       .replace(/\n+/g, ' ')
@@ -100,7 +152,6 @@ export class JevVoiceEngine {
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    // Pick best matching voice if available
     const voices = window.speechSynthesis.getVoices();
     const primaryLang = bcp47.split('-')[0];
     const matchedVoice =
@@ -110,6 +161,8 @@ export class JevVoiceEngine {
 
     if (matchedVoice) {
       utterance.voice = matchedVoice;
+    } else if (voices.length > 0) {
+      utterance.voice = voices.find((v) => v.default) || voices[0];
     }
 
     utterance.onstart = () => {
@@ -130,6 +183,13 @@ export class JevVoiceEngine {
   }
 
   static stopSpeaking(): void {
+    if (this.currentAudio) {
+      try {
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+      } catch (e) {}
+      this.currentAudio = null;
+    }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
